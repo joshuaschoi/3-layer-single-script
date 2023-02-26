@@ -1,6 +1,6 @@
 import sqlite3
 import os
-
+import pytest
 
 class Singleton:
     count = 0
@@ -66,6 +66,7 @@ def db_fresh_start():
 ################################
 # ***** TESTS *****
 ################################
+
 def test_is_singleton():
     delete_database()
     a = Singleton()
@@ -83,6 +84,19 @@ def test_database_connect():
     db.get_cursor()
     assert 2 == len(db.sql("SELECT * FROM fish;"))
 
+# Pytest fixture to provide the data used to create the test database
+@pytest.fixture
+def setup_database():
+    delete_database()
+    connection = sqlite3.connect("aquarium.db")
+    cursor = connection.cursor()
+    print("SETTING UP DATABASE")
+    cursor.execute("CREATE TABLE fish (name TEXT, species TEXT, tank_number INTEGER)")
+    cursor.execute("INSERT INTO fish VALUES ('Sammy', 'shark', 1)")
+    cursor.execute("INSERT INTO fish VALUES ('Jamie', 'cuttlefish', 7)")
+    connection.commit()
+    yield connection
+
 def test_resetting_after_db_creation():
     delete_database()
 
@@ -96,9 +110,13 @@ def test_resetting_after_db_creation():
     initialize_database()
 
     db_a.get_cursor()
-    assert 2 == len(db_b.sql("SELECT * FROM fish;"))
+    assert 2 == len(list(db_b.execute("SELECT * FROM fish;")))
 
+    delete_database()
 
+def test_pytest_fixture_setup(setup_database):
+    conn = setup_database
+    assert len(list(conn.execute('SELECT * FROM fish'))) == 2
     
 if __name__=="__main__":
 
